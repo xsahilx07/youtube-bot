@@ -84,7 +84,7 @@ try:
     search_results = pexels_client.search(query=search_keyword, results_per_page=15)
     
     # The library was changed; now it's search().videos not search_videos()
-    videos = search_results.videos
+    videos = search_results['videos']
     if not videos:
         print("No videos found on Pexels for this keyword.")
         raise FileNotFoundError("Pexels search returned no videos.")
@@ -139,7 +139,7 @@ thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
 try:
     # Correct way to search for photos
     search_results = pexels_client.search(query=search_keyword, results_per_page=1)
-    photos = search_results.photos
+    photos = search_results['photos']
     if photos:
         photo_url = photos[0].original
         subprocess.run(["wget", photo_url, "-O", "thumbnail_bg.jpg"], check=True)
