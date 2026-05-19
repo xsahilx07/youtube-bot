@@ -67,23 +67,29 @@ print("Voiceover Generated.")
 print("--- Step 4: Finding Visuals ---")
 pexels_api_key = os.environ.get("PEXELS_API_KEY")
 if not pexels_api_key:
-    print("Pexels API key not found!")
-    exit()
+    print("CRITICAL: Pexels API key not found!")
+    raise ValueError("PEXELS_API_KEY secret not set")
 
 pexels_client = PexelsClient(pexels_api_key)
 
 keywords = topic.split()
-search_keyword = random.choice(keywords)
+# Prioritize better keywords
+good_keywords = [kw for kw in keywords if kw.lower() not in ['the', 'of', 'and', 'a', 'in', 'to']]
+search_keyword = random.choice(good_keywords) if good_keywords else random.choice(keywords)
 print(f"Searching Pexels for: {search_keyword}")
 
 downloaded_clips = []
 try:
-    pexels_client.search_videos(query=search_keyword, per_page=15)
-    videos = pexels_client.get_videos()
+    # Correct way to search for videos
+    search_results = pexels_client.search(query=search_keyword, results_per_page=15)
+    
+    # The library was changed; now it's search().videos not search_videos()
+    videos = search_results.videos
     if not videos:
         print("No videos found on Pexels for this keyword.")
-        exit()
+        raise FileNotFoundError("Pexels search returned no videos.")
     
+    print(f"Found {len(videos)} videos. Downloading...")
     for i, video in enumerate(videos):
         # Find the highest quality video file that is 1920x1080
         for quality, url in video.sources.items():
@@ -93,12 +99,13 @@ try:
                 downloaded_clips.append(f"clip_{i}.mp4")
                 break # Found a suitable file, move to next video
 except Exception as e:
-    print(f"Error communicating with Pexels or downloading videos: {e}")
-    exit()
+    print(f"CRITICAL ERROR communicating with Pexels or downloading videos: {e}")
+    # Re-raise the error to make the GitHub Action fail properly
+    raise e
 
 if not downloaded_clips:
-    print("Failed to download any video clips.")
-    exit()
+    print("CRITICAL: Failed to download any valid video clips.")
+    raise FileNotFoundError("No clips were downloaded.")
 
 # --- 5. CREATE VIDEO ---
 print("--- Step 5: Creating Video ---")
@@ -130,8 +137,9 @@ except Exception as e:
 print("--- Step 6: Creating Thumbnail ---")
 thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
 try:
-    pexels_client.search_photos(query=search_keyword, per_page=1)
-    photos = pexels_client.get_photos()
+    # Correct way to search for photos
+    search_results = pexels_client.search(query=search_keyword, results_per_page=1)
+    photos = search_results.photos
     if photos:
         photo_url = photos[0].original
         subprocess.run(["wget", photo_url, "-O", "thumbnail_bg.jpg"], check=True)
@@ -146,7 +154,8 @@ try:
     else:
         print("No photo found for thumbnail, skipping.")
 except Exception as e:
-    print(f"Could not create thumbnail: {e}")
+    print(f"Warning: Could not create thumbnail: {e}")
+    # We don't fail the whole job for a thumbnail, so we just print a warning.
 
 
 # --- 7. UPLOAD TO YOUTUBE ---
