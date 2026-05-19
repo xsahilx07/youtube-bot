@@ -36,13 +36,21 @@ print(f"Topic: {topic}")
 print("--- Step 2: Generating Script ---")
 client = Client()
 try:
-    script_prompt = f"Write a short, 300-word YouTube video script about: {topic}. Start with a hook. Tell a story. End with a call to action to subscribe. Do not use any special formatting or characters."
-    script_text = client.chat.completions.create(model="gpt-3.5-turbo", messages=[{"role": "user", "content": script_prompt}]).choices[0].message.content
+    script_prompt = f"Write a 300-word YouTube video script about: {topic}. Start with a strong opening hook. Tell a compelling story. Write in simple, clear language. Do not include a title or any special formatting."
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo", # This is a placeholder, the provider will handle the model
+        messages=[{"role": "user", "content": script_prompt}]
+    )
+    script_text = response.choices[0].message.content
+    if not script_text or len(script_text) < 50:
+        print("Generated script is empty or too short. Exiting.")
+        raise ValueError("Invalid script generated")
+        
 except Exception as e:
-    print(f"Error generating script: {e}")
-    exit()
-print("Script Generated.")
-
+    print(f"CRITICAL ERROR generating script: {e}")
+    # Re-raise the error to make the GitHub Action fail properly
+    raise e
+print("Script Generated successfully.")
 # --- 3. GENERATE VOICEOVER ---
 print("--- Step 3: Generating Voiceover ---")
 async def generate_voiceover():
