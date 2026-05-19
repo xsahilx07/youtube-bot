@@ -23,4 +23,5 @@ jobs:
     - name: Run The Robot Brain
       env:
         PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        CLIENT_SECRETS_JSON: ${{ secrets.CLIENT_SECRETS_JSON }}
       run: python main.py
