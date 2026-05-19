@@ -37,7 +37,7 @@ print(f"Topic: {topic}")
 print("--- Step 2: Generating Script ---")
 # We must explicitly tell g4f to use a provider that doesn't require a key.
 client = Client(
-    provider=g4f.Provider.Llama2
+    provider=g4f.Provider.You
 )
 try:
     script_prompt = f"Write a 300-word YouTube video script about: {topic}. Start with a strong opening hook. Tell a compelling story. Write in simple, clear language. Do not include a title or any special formatting."
