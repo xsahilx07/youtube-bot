@@ -135,27 +135,90 @@ except Exception as e:
 
 # --- 7. UPLOAD TO YOUTUBE ---
 print("--- Step 7: Uploading to YouTube ---")
-title = topic
-description = script_text[:2000] + "\n\n#history #documentary #automated"
 
-command = [
-    "yt-up",
-    "final_video.mp4",
-    "--title", title,
-    "--description", description,
-    "--thumbnail", "thumbnail.jpg",
-    "--privacy", "private",
-    "--client-secrets", "client_secrets.json"
-]
+CLIENT_SECRETS_FILE = "client_secrets.json"
+API_NAME = "youtube"
+API_VERSION = "v3"
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+TOKEN_PICKLE_FILE = 'token.pickle'
+
+def get_authenticated_service():
+    creds = None
+    # The file token.pickle stores the user's access and refresh tokens, and is
+    # created automatically when the authorization flow completes for the first
+    # time.
+    if os.path.exists(TOKEN_PICKLE_FILE):
+        with open(TOKEN_PICKLE_FILE, 'rb') as token:
+            creds = pickle.load(token)
+    # If there are no (valid) credentials available, let the user log in.
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print("--- AUTHENTICATION ERROR ---")
+                print("Could not refresh token. Need to re-authenticate.")
+                flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+                # THIS IS THE PART THAT WILL FAIL ON GITHUB ACTIONS
+                # IT WILL PROVIDE A URL IN THE LOGS
+                creds = flow.run_local_server(port=0)
+
+        else:
+            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+            # THIS IS THE PART THAT WILL FAIL ON GITHUB ACTIONS
+            # IT WILL PROVIDE A URL IN THE LOGS
+            print("--- AUTHENTICATION NEEDED ---")
+            print("This will fail and provide a URL. Copy the URL from the logs.")
+            creds = flow.run_console() # Use run_console for non-interactive environments
+
+        # Save the credentials for the next run
+        with open(TOKEN_PICKLE_FILE, 'wb') as token:
+            pickle.dump(creds, token)
+    
+    return build(API_NAME, API_VERSION, credentials=creds)
+
+youtube = get_authenticated_service()
+
+title = topic
+description = script_text[:4500] + "\n\n#history #documentary #automated"
+
+request_body = {
+    'snippet': {
+        'title': title,
+        'description': description,
+        'tags': ['history', 'documentary', 'automated', topic.replace(' ', '')],
+        'categoryId': '27' # 27 is for Education category
+    },
+    'status': {
+        'privacyStatus': 'private', # IMPORTANT: Upload as private for review
+        'selfDeclaredMadeForKids': False,
+    }
+}
+
 try:
-    # This will fail the first time and give you a link to authenticate
-    print("Running YouTube upload command...")
-    subprocess.run(command, check=True)
+    mediaFile = MediaFileUpload('final_video.mp4', chunksize=-1, resumable=True)
+    
+    print("Uploading video...")
+    response_upload = youtube.videos().insert(
+        part='snippet,status',
+        body=request_body,
+        media_body=mediaFile
+    ).execute()
+
+    print("Video uploaded. Now uploading thumbnail...")
+    youtube.thumbnails().set(
+        videoId=response_upload.get('id'),
+        media_body=MediaFileUpload('thumbnail.jpg')
+    ).execute()
+
+    print(f"--- SUCCESS: Video '{title}' uploaded with ID: {response_upload.get('id')} ---")
+
 except Exception as e:
-    print("--- UPLOAD FAILED OR NEEDS AUTHENTICATION (This is expected the first time!) ---")
-    print("The program will now exit. CHECK THE LOGS CAREFULLY.")
-    print("If you see a URL like 'https://accounts.google.com/o/oauth2/...' or a command to run, you must follow those instructions.")
-    print("If you see 'yt_up.exceptions.InvalidClientSecretsError', it means your client_secrets.json is wrong.")
+    print("--- UPLOAD FAILED OR NEEDS AUTHENTICATION ---")
+    print("This is expected on the first run.")
+    print("Carefully read the logs above this message for a URL or instructions.")
     print(f"The specific error was: {e}")
+    # Re-raise the error to make the GitHub Action fail
+    raise e
 
 print("--- SCRIPT FINISHED ---")
