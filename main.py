@@ -1,3 +1,4 @@
+import g4f
 from moviepy.video.fx import all as vfx
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
@@ -34,11 +35,13 @@ print(f"Topic: {topic}")
 
 # --- 2. GENERATE SCRIPT ---
 print("--- Step 2: Generating Script ---")
-client = Client()
+# We must explicitly tell g4f to use a provider that doesn't require a key.
+client = Client(
+    provider=g4f.Provider.Llama2
+)
 try:
     script_prompt = f"Write a 300-word YouTube video script about: {topic}. Start with a strong opening hook. Tell a compelling story. Write in simple, clear language. Do not include a title or any special formatting."
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo", # This is a placeholder, the provider will handle the model
         messages=[{"role": "user", "content": script_prompt}]
     )
     script_text = response.choices[0].message.content
@@ -51,6 +54,7 @@ except Exception as e:
     # Re-raise the error to make the GitHub Action fail properly
     raise e
 print("Script Generated successfully.")
+
 # --- 3. GENERATE VOICEOVER ---
 print("--- Step 3: Generating Voiceover ---")
 async def generate_voiceover():
