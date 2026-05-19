@@ -82,6 +82,8 @@ downloaded_clips = []
 try:
     # Correct way to search for videos
     search_results = pexels_client.search(query=search_keyword, results_per_page=15)
+    print("--- PEXELS API RESPONSE ---")
+    print(search_results)
     
     # The library was changed; now it's search().videos not search_videos()
     videos = search_results['videos']
