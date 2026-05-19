@@ -1,3 +1,4 @@
+from moviepy.video.fx import all as vfx
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -89,17 +90,29 @@ if not downloaded_clips:
 
 # --- 5. CREATE VIDEO ---
 print("--- Step 5: Creating Video ---")
-clips = [ImageClip(m).set_duration(5).set_fps(25) for m in downloaded_clips if m.endswith('.mp4')]
-final_clip = concatenate_videoclips(clips, method="compose")
+try:
+    clips = [ImageClip(m).set_duration(7).set_fps(24) for m in downloaded_clips if os.path.exists(m) and os.path.getsize(m) > 0]
+    if not clips:
+        print("No valid clips to process.")
+        exit()
+        
+    final_clip = concatenate_videoclips(clips, method="compose")
+    
+    voiceover = AudioFileClip("voiceover.mp3")
+    
+    # If the video is shorter than the audio, loop the video
+    if final_clip.duration < voiceover.duration:
+        final_clip = final_clip.fx(vfx.loop, duration=voiceover.duration)
+    else: # Otherwise, trim the video to the audio length
+        final_clip = final_clip.set_duration(voiceover.duration)
 
-voiceover = AudioFileClip("voiceover.mp3")
-final_clip = final_clip.set_duration(voiceover.duration)
-
-final_audio = CompositeAudioClip([voiceover])
-final_clip.audio = final_audio
-
-final_clip.write_videofile("final_video.mp4", codec="libx264", audio_codec="aac")
-print("Video Created.")
+    final_clip.audio = voiceover # Set the main audio
+    
+    final_clip.write_videofile("final_video.mp4", codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True)
+    print("Video Created.")
+except Exception as e:
+    print(f"Error creating video: {e}")
+    exit()
 
 # --- 6. CREATE THUMBNAIL ---
 print("--- Step 6: Creating Thumbnail ---")
