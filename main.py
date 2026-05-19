@@ -12,7 +12,7 @@ import subprocess
 from g4f.client import Client
 from edge_tts import Communicate
 import asyncio
-from pexels_api import API as PexelsClient
+from pypexels import PyPexels
 from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeAudioClip
 from PIL import Image, ImageFont, ImageDraw
 
@@ -70,44 +70,30 @@ if not pexels_api_key:
     print("CRITICAL: Pexels API key not found!")
     raise ValueError("PEXELS_API_KEY secret not set")
 
-pexels_client = PexelsClient(pexels_api_key)
+pexels_client = PyPexels(api_key=pexels_api_key)
 
 keywords = topic.split()
-# Prioritize better keywords
 good_keywords = [kw for kw in keywords if kw.lower() not in ['the', 'of', 'and', 'a', 'in', 'to']]
 search_keyword = random.choice(good_keywords) if good_keywords else random.choice(keywords)
 print(f"Searching Pexels for: {search_keyword}")
 
 downloaded_clips = []
 try:
-    # Correct way to search for videos
-    search_results = pexels_client.search_videos(query=search_keyword, results_per_page=15)
-    print("--- PEXELS API RESPONSE ---")
-    print(search_results)
+    search_results = pexels_client.videos.search(query=search_keyword, per_page=15)
     
-    # The library was changed; now it's search().videos not search_videos()
-    videos = search_results.videos
-    if not videos:
-        print("No videos found on Pexels for this keyword.")
-        raise FileNotFoundError("Pexels search returned no videos.")
-    
-    print(f"Found {len(videos)} videos. Downloading...")
-    for i, video in enumerate(videos):
-        # Find the highest quality video file that is 1920x1080
-        for quality, url in video.sources.items():
-            if '1920x1080' in quality:
-                print(f"Downloading clip {i}...")
-                subprocess.run(["wget", url, "-O", f"clip_{i}.mp4"], check=True)
-                downloaded_clips.append(f"clip_{i}.mp4")
-                break # Found a suitable file, move to next video
+    for video in search_results.videos:
+        video_files = video.video_files
+        for vf in video_files:
+            if vf.width == 1920 and vf.height == 1080:
+                print(f"Downloading clip {vf.id}...")
+                subprocess.run(["wget", vf.link, "-O", f"clip_{vf.id}.mp4"], check=True)
+                downloaded_clips.append(f"clip_{vf.id}.mp4")
+                break
+    if not downloaded_clips:
+        raise FileNotFoundError("No 1920x1080 videos found.")
 except Exception as e:
-    print(f"CRITICAL ERROR communicating with Pexels or downloading videos: {e}")
-    # Re-raise the error to make the GitHub Action fail properly
+    print(f"CRITICAL ERROR finding/downloading videos: {e}")
     raise e
-
-if not downloaded_clips:
-    print("CRITICAL: Failed to download any valid video clips.")
-    raise FileNotFoundError("No clips were downloaded.")
 
 # --- 5. CREATE VIDEO ---
 print("--- Step 5: Creating Video ---")
@@ -139,16 +125,13 @@ except Exception as e:
 print("--- Step 6: Creating Thumbnail ---")
 thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
 try:
-    # Correct way to search for photos
-    search_results = pexels_client.search_photos(query=search_keyword, results_per_page=1)
-    photos = search_results.photos
-    if photos:
-        photo_url = photos[0].original
+    search_results = pexels_client.photos.search(query=search_keyword, per_page=1)
+    if search_results.photos:
+        photo_url = search_results.photos[0].src.original
         subprocess.run(["wget", photo_url, "-O", "thumbnail_bg.jpg"], check=True)
         
         img = Image.open("thumbnail_bg.jpg").resize((1280, 720))
         draw = ImageDraw.Draw(img)
-        # You might need to add a font file to your repository for this to look good
         font = ImageFont.load_default(size=70)
         draw.text((50, 550), thumbnail_text.upper(), font=font, fill="yellow", stroke_width=3, stroke_fill="black")
         img.save("thumbnail.jpg")
@@ -157,7 +140,6 @@ try:
         print("No photo found for thumbnail, skipping.")
 except Exception as e:
     print(f"Warning: Could not create thumbnail: {e}")
-    # We don't fail the whole job for a thumbnail, so we just print a warning.
 
 
 # --- 7. UPLOAD TO YOUTUBE ---
