@@ -10,7 +10,7 @@ import subprocess
 from g4f.client import Client
 from edge_tts import Communicate
 import asyncio
-from pexels_api.client import Client as PexelsClient
+from pexels_api import API as PexelsClient
 from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeAudioClip
 from PIL import Image, ImageFont, ImageDraw
 
@@ -56,41 +56,32 @@ pexels_api_key = os.environ.get("PEXELS_API_KEY")
 if not pexels_api_key:
     print("Pexels API key not found!")
     exit()
+
 pexels_client = PexelsClient(pexels_api_key)
 
 keywords = topic.split()
 search_keyword = random.choice(keywords)
 print(f"Searching Pexels for: {search_keyword}")
 
+downloaded_clips = []
 try:
-    search_videos = pexels_client.videos.search(query=search_keyword, per_page=15)
-    video_files_to_download = []
-    if search_videos.videos:
-        for video in search_videos.videos:
-            # Find the highest quality video file that is 1920x1080
-            for vf in video.video_files:
-                if vf.width == VIDEO_WIDTH and vf.height == VIDEO_HEIGHT:
-                    video_files_to_download.append(vf.link)
-                    break # Found a suitable file, move to next video
-        if not video_files_to_download:
-            print("Could not find any 1920x1080 videos.")
-            exit()
-    else:
+    pexels_client.search_videos(query=search_keyword, per_page=15)
+    videos = pexels_client.get_videos()
+    if not videos:
         print("No videos found on Pexels for this keyword.")
         exit()
-except Exception as e:
-    print(f"Error searching Pexels: {e}")
-    exit()
     
-print(f"Found {len(video_files_to_download)} videos. Downloading...")
-downloaded_clips = []
-for i, link in enumerate(video_files_to_download):
-    try:
-        # Use wget to download files as it's common on ubuntu runners
-        subprocess.run(["wget", link, "-O", f"clip_{i}.mp4"], check=True)
-        downloaded_clips.append(f"clip_{i}.mp4")
-    except Exception as e:
-        print(f"Could not download clip {i}: {e}")
+    for i, video in enumerate(videos):
+        # Find the highest quality video file that is 1920x1080
+        for quality, url in video.sources.items():
+            if '1920x1080' in quality:
+                print(f"Downloading clip {i}...")
+                subprocess.run(["wget", url, "-O", f"clip_{i}.mp4"], check=True)
+                downloaded_clips.append(f"clip_{i}.mp4")
+                break # Found a suitable file, move to next video
+except Exception as e:
+    print(f"Error communicating with Pexels or downloading videos: {e}")
+    exit()
 
 if not downloaded_clips:
     print("Failed to download any video clips.")
@@ -112,17 +103,17 @@ print("Video Created.")
 
 # --- 6. CREATE THUMBNAIL ---
 print("--- Step 6: Creating Thumbnail ---")
-thumbnail_text = topic[:20] + "..." if len(topic) > 20 else topic
+thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
 try:
-    search_photos = pexels_client.photos.search(query=search_keyword, per_page=1)
-    if search_photos.photos:
-        photo_url = search_photos.photos[0].src.original
+    pexels_client.search_photos(query=search_keyword, per_page=1)
+    photos = pexels_client.get_photos()
+    if photos:
+        photo_url = photos[0].original
         subprocess.run(["wget", photo_url, "-O", "thumbnail_bg.jpg"], check=True)
         
         img = Image.open("thumbnail_bg.jpg").resize((1280, 720))
         draw = ImageDraw.Draw(img)
         # You might need to add a font file to your repository for this to look good
-        # For now, it will use a default font
         font = ImageFont.load_default(size=70)
         draw.text((50, 550), thumbnail_text.upper(), font=font, fill="yellow", stroke_width=3, stroke_fill="black")
         img.save("thumbnail.jpg")
