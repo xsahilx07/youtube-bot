@@ -20,6 +20,17 @@ from PIL import Image, ImageFont, ImageDraw
 VIDEO_WIDTH = 1920
 VIDEO_HEIGHT = 1080
 
+# --- SETUP: CREATE SECRETS FILES FROM GITHUB SECRETS ---
+print("--- Setting up credentials ---")
+client_secrets_content = os.environ.get('CLIENT_SECRETS_JSON')
+if client_secrets_content:
+    with open("client_secrets.json", "w") as f:
+        f.write(client_secrets_content)
+    print("client_secrets.json created from secret.")
+else:
+    print("CRITICAL: CLIENT_SECRETS_JSON secret not found!")
+    exit()
+    
 # --- 1. GET TOPIC ---
 print("--- Step 1: Getting Topic ---")
 with open("topics.txt", "r+") as f:
