@@ -210,7 +210,7 @@ def get_authenticated_service():
             # IT WILL PROVIDE A URL IN THE LOGS
             print("--- AUTHENTICATION NEEDED ---")
             print("This will fail and provide a URL. Copy the URL from the logs.")
-            creds = flow.run_console() # Use run_console for non-interactive environments
+            creds = flow.run_local_server(port=0)
 
         # Save the credentials for the next run
         with open(TOKEN_PICKLE_FILE, 'wb') as token:
