@@ -133,19 +133,23 @@ title = topic
 description = script_text[:2000] + "\n\n#history #documentary #automated"
 
 command = [
-    "youtube-upload",
+    "yt-up",
+    "final_video.mp4",
     "--title", title,
     "--description", description,
     "--thumbnail", "thumbnail.jpg",
-    "--privacy", "private", # IMPORTANT: Upload as private for review
-    "final_video.mp4"
+    "--privacy", "private",
+    "--client-secrets", "client_secrets.json"
 ]
 try:
     # This will fail the first time and give you a link to authenticate
+    print("Running YouTube upload command...")
     subprocess.run(command, check=True)
 except Exception as e:
-    print("--- UPLOAD FAILED (This is expected the first time!) ---")
-    print("See the log for an authentication URL. You must follow the instructions in the final phase.")
-    print(f"Error: {e}")
+    print("--- UPLOAD FAILED OR NEEDS AUTHENTICATION (This is expected the first time!) ---")
+    print("The program will now exit. CHECK THE LOGS CAREFULLY.")
+    print("If you see a URL like 'https://accounts.google.com/o/oauth2/...' or a command to run, you must follow those instructions.")
+    print("If you see 'yt_up.exceptions.InvalidClientSecretsError', it means your client_secrets.json is wrong.")
+    print(f"The specific error was: {e}")
 
 print("--- SCRIPT FINISHED ---")
