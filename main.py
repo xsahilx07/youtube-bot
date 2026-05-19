@@ -1,8 +1,8 @@
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_api_python_client.discovery import build
-from google_api_python_client.http import MediaFileUpload
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 import pickle
 import os
 import random
