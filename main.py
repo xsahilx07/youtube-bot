@@ -12,7 +12,7 @@ import subprocess
 from g4f.client import Client
 from edge_tts import Communicate
 import asyncio
-from pypexels import PyPexels
+import requests
 from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeAudioClip
 from PIL import Image, ImageFont, ImageDraw
 
@@ -63,14 +63,12 @@ async def generate_voiceover():
 asyncio.run(generate_voiceover())
 print("Voiceover Generated.")
 
-# --- 4. FIND VISUALS ---
+# --- 4. FIND VISUALS (MANUAL API CALL) ---
 print("--- Step 4: Finding Visuals ---")
 pexels_api_key = os.environ.get("PEXELS_API_KEY")
 if not pexels_api_key:
     print("CRITICAL: Pexels API key not found!")
     raise ValueError("PEXELS_API_KEY secret not set")
-
-pexels_client = PyPexels(api_key=pexels_api_key)
 
 keywords = topic.split()
 good_keywords = [kw for kw in keywords if kw.lower() not in ['the', 'of', 'and', 'a', 'in', 'to']]
@@ -79,15 +77,26 @@ print(f"Searching Pexels for: {search_keyword}")
 
 downloaded_clips = []
 try:
-    search_results = pexels_client.videos.search(query=search_keyword, per_page=15)
+    headers = {"Authorization": pexels_api_key}
+    # Explicitly search for videos
+    video_url = f"https://api.pexels.com/videos/search?query={search_keyword}&per_page=15"
+    response = requests.get(video_url, headers=headers)
+    response.raise_for_status()  # This will raise an error for bad responses (4xx or 5xx)
+    search_results = response.json()
+
+    videos = search_results.get('videos', [])
+    if not videos:
+        raise FileNotFoundError("Pexels search returned no videos.")
     
-    for video in search_results.videos:
-        video_files = video.video_files
+    print(f"Found {len(videos)} videos. Downloading...")
+    for i, video in enumerate(videos):
+        video_files = video.get('video_files', [])
         for vf in video_files:
-            if vf.width == 1920 and vf.height == 1080:
-                print(f"Downloading clip {vf.id}...")
-                subprocess.run(["wget", vf.link, "-O", f"clip_{vf.id}.mp4"], check=True)
-                downloaded_clips.append(f"clip_{vf.id}.mp4")
+            if vf.get('width') == 1920 and vf.get('height') == 1080:
+                link = vf.get('link')
+                print(f"Downloading clip {vf.get('id')}...")
+                subprocess.run(["wget", link, "-O", f"clip_{i}.mp4"], check=True)
+                downloaded_clips.append(f"clip_{i}.mp4")
                 break
     if not downloaded_clips:
         raise FileNotFoundError("No 1920x1080 videos found.")
@@ -121,26 +130,33 @@ except Exception as e:
     print(f"Error creating video: {e}")
     exit()
 
-# --- 6. CREATE THUMBNAIL ---
+# --- 6. CREATE THUMBNAIL (MANUAL API CALL) ---
 print("--- Step 6: Creating Thumbnail ---")
 thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
 try:
-    search_results = pexels_client.photos.search(query=search_keyword, per_page=1)
-    if search_results.photos:
-        photo_url = search_results.photos[0].src.original
-        subprocess.run(["wget", photo_url, "-O", "thumbnail_bg.jpg"], check=True)
-        
-        img = Image.open("thumbnail_bg.jpg").resize((1280, 720))
-        draw = ImageDraw.Draw(img)
-        font = ImageFont.load_default(size=70)
-        draw.text((50, 550), thumbnail_text.upper(), font=font, fill="yellow", stroke_width=3, stroke_fill="black")
-        img.save("thumbnail.jpg")
-        print("Thumbnail created.")
+    headers = {"Authorization": pexels_api_key}
+    # Explicitly search for photos
+    photo_url_search = f"https://api.pexels.com/v1/search?query={search_keyword}&per_page=1"
+    response = requests.get(photo_url_search, headers=headers)
+    response.raise_for_status()
+    search_results = response.json()
+    
+    photos = search_results.get('photos', [])
+    if photos:
+        photo_url = photos[0].get('src', {}).get('original')
+        if photo_url:
+            subprocess.run(["wget", photo_url, "-O", "thumbnail_bg.jpg"], check=True)
+            
+            img = Image.open("thumbnail_bg.jpg").resize((1280, 720))
+            draw = ImageDraw.Draw(img)
+            font = ImageFont.load_default(size=70)
+            draw.text((50, 550), thumbnail_text.upper(), font=font, fill="yellow", stroke_width=3, stroke_fill="black")
+            img.save("thumbnail.jpg")
+            print("Thumbnail created.")
     else:
         print("No photo found for thumbnail, skipping.")
 except Exception as e:
     print(f"Warning: Could not create thumbnail: {e}")
-
 
 # --- 7. UPLOAD TO YOUTUBE ---
 print("--- Step 7: Uploading to YouTube ---")
