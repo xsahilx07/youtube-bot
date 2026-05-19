@@ -13,7 +13,7 @@ from g4f.client import Client
 from edge_tts import Communicate
 import asyncio
 import requests
-from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip, CompositeAudioClip
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
 from PIL import Image, ImageFont, ImageDraw
 
 # --- CONFIGURATION ---
@@ -107,12 +107,16 @@ except Exception as e:
 # --- 5. CREATE VIDEO ---
 print("--- Step 5: Creating Video ---")
 try:
-    clips = [ImageClip(m).set_duration(7).set_fps(24) for m in downloaded_clips if os.path.exists(m) and os.path.getsize(m) > 0]
+    # Use VideoFileClip for video files, not ImageClip
+    clips = [VideoFileClip(m) for m in downloaded_clips if os.path.exists(m) and os.path.getsize(m) > 0]
     if not clips:
-        print("No valid clips to process.")
-        exit()
-        
-    final_clip = concatenate_videoclips(clips, method="compose")
+        print("CRITICAL: No valid video clips were found after download.")
+        raise FileNotFoundError("No valid clips to process.")
+    
+    # Set a standard duration for each clip
+    processed_clips = [c.set_duration(7).resize(height=VIDEO_HEIGHT) for c in clips]
+
+    final_clip = concatenate_videoclips(processed_clips, method="compose")
     
     voiceover = AudioFileClip("voiceover.mp3")
     
@@ -122,14 +126,15 @@ try:
     else: # Otherwise, trim the video to the audio length
         final_clip = final_clip.set_duration(voiceover.duration)
 
-    final_clip.audio = voiceover # Set the main audio
+    final_clip.audio = voiceover
     
-    final_clip.write_videofile("final_video.mp4", codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True)
+    print("Writing final video file... This can take a while.")
+    final_clip.write_videofile("final_video.mp4", codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, threads=2)
     print("Video Created.")
 except Exception as e:
-    print(f"Error creating video: {e}")
-    exit()
-
+    print(f"CRITICAL ERROR creating video: {e}")
+    # Re-raise the error to make the GitHub Action fail properly
+    raise e
 # --- 6. CREATE THUMBNAIL (MANUAL API CALL) ---
 print("--- Step 6: Creating Thumbnail ---")
 thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
