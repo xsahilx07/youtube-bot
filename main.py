@@ -35,37 +35,33 @@ else:
     print("CRITICAL: CLIENT_SECRETS_JSON secret not found!")
     exit()
 
-# --- 1. GET TOPIC ---
-print("--- Step 1: Getting Topic ---")
-with open("topics.txt", "r+") as f:
-    topics = f.readlines()
-    if not topics:
-        print("No topics left! Exiting.")
-        exit()
-    topic = topics.pop(0).strip()
-    f.seek(0)
-    f.truncate()
-    f.writelines(topics)
-print(f"Topic: {topic}")
-
-# --- 2. GENERATE SCRIPT (OpenAI API) ---
-print("--- Step 2: Generating Script ---")
+# --- 1. GET SCRIPT AND TOPIC FROM FILE ---
+print("--- Step 1: Getting Script and Topic ---")
 try:
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-    script_prompt = f"You are a scriptwriter for a viral history YouTube channel. Write a compelling 300-word video script about: {topic}. Start with a strong opening hook. Tell a story using simple, clear language. Do not include a title or any special formatting. Just the script text."
-    
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        messages=[{"role": "user", "content": script_prompt}]
-    )
-    script_text = response.choices[0].message.content
-    if not script_text or len(script_text) < 50:
-        raise ValueError("OpenAI returned an empty or invalid script.")
+    with open("script.txt", "r+", encoding="utf-8") as f:
+        lines = f.readlines()
+        if not lines:
+            print("script.txt is empty! Exiting.")
+            exit()
         
+        # The first line is the topic
+        topic = lines[0].strip()
+        # The rest of the lines are the script
+        script_text = "".join(lines[1:])
+        
+        if not topic or not script_text:
+            raise ValueError("script.txt is missing a topic on the first line or the script body.")
+
+        # We don't remove the script, you will do that manually
+except FileNotFoundError:
+    print("CRITICAL: script.txt not found! Please create it and add a topic and script.")
+    raise
 except Exception as e:
-    print(f"CRITICAL ERROR generating script with OpenAI: {e}")
+    print(f"CRITICAL ERROR reading script.txt: {e}")
     raise e
-print("Script Generated successfully via OpenAI.")
+
+print(f"Topic: {topic}")
+print("Script Loaded successfully.")
 
 # --- 3. GENERATE VOICEOVER ---
 print("--- Step 3: Generating Voiceover ---")
