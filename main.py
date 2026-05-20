@@ -1,8 +1,7 @@
-from g4f.client import Client
+from openai import OpenAI
 import os
 import random
 import subprocess
-import g4f
 from edge_tts import Communicate
 import asyncio
 import requests
