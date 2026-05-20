@@ -48,25 +48,24 @@ with open("topics.txt", "r+") as f:
     f.writelines(topics)
 print(f"Topic: {topic}")
 
-# --- 2. GENERATE SCRIPT ---
+# --- 2. GENERATE SCRIPT (OpenAI API) ---
 print("--- Step 2: Generating Script ---")
-client = Client(
-    provider=g4f.Provider.Grok
-)
 try:
-    script_prompt = f"Write a 300-word YouTube video script about: {topic}. Start with a strong opening hook. Tell a compelling story. Write in simple, clear language. Do not include a title or any special formatting."
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    script_prompt = f"You are a scriptwriter for a viral history YouTube channel. Write a compelling 300-word video script about: {topic}. Start with a strong opening hook. Tell a story using simple, clear language. Do not include a title or any special formatting. Just the script text."
+    
     response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": script_prompt}]
     )
     script_text = response.choices[0].message.content
     if not script_text or len(script_text) < 50:
-        print("Generated script is empty or too short. Exiting.")
-        raise ValueError("Invalid script generated")
+        raise ValueError("OpenAI returned an empty or invalid script.")
         
 except Exception as e:
-    print(f"CRITICAL ERROR generating script: {e}")
+    print(f"CRITICAL ERROR generating script with OpenAI: {e}")
     raise e
-print("Script Generated successfully.")
+print("Script Generated successfully via OpenAI.")
 
 # --- 3. GENERATE VOICEOVER ---
 print("--- Step 3: Generating Voiceover ---")
