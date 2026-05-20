@@ -205,12 +205,20 @@ def get_authenticated_service():
                 creds = flow.run_local_server(port=0)
 
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-            # THIS IS THE PART THAT WILL FAIL ON GITHUB ACTIONS
-            # IT WILL PROVIDE A URL IN THE LOGS
-            print("--- AUTHENTICATION NEEDED ---")
-            print("This will fail and provide a URL. Copy the URL from the logs.")
-            creds = flow.run_local_server(port=0)
+   flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+    # This is the magic line that prints the URL
+    flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    
+    print('********************************************************************************')
+    print('********************************************************************************')
+    print('COPY THIS URL, PASTE IT IN YOUR BROWSER, AND AUTHORIZE:')
+    print(auth_url)
+    print('********************************************************************************')
+    print('********************************************************************************')
+    
+    # We will cause the script to fail here on purpose after printing the URL
+    raise Exception("Authentication URL has been printed. Now go get the code.")
 
         # Save the credentials for the next run
         with open(TOKEN_PICKLE_FILE, 'wb') as token:
