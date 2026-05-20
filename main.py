@@ -63,16 +63,41 @@ except Exception as e:
 print(f"Topic: {topic}")
 print("Script Loaded successfully.")
 
-# --- 3. GENERATE VOICEOVER & SUBTITLES ---
+# --- # --- 3. GENERATE VOICEOVER & SUBTITLES ---
 print("--- Step 3: Generating Voiceover & Subtitles ---")
 async def generate_voice_and_subs():
     communicate = Communicate(script_text, "en-US-JennyNeural")
-    sub_maker = communicate.to_srt()
-    # Save audio file
-    await communicate.save("voiceover.mp3")
-    # Save subtitle file
-    with open("voiceover.srt", "w", encoding="utf-8") as f:
-        f.write(await sub_maker)
+    
+    # The new way: Manually build the SRT file while streaming audio
+    srt_content = ""
+    index = 1
+    start_time = 0
+    with open("voiceover.mp3", "wb") as audio_file:
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio_file.write(chunk["data"])
+            elif chunk["type"] == "WordBoundary":
+                end_time = start_time + (chunk["duration"] / 1000)
+                
+                # Format times for SRT
+                start_h, start_rem = divmod(start_time, 3600)
+                start_m, start_s = divmod(start_rem, 60)
+                start_ms = int((start_s - int(start_s)) * 1000)
+                
+                end_h, end_rem = divmod(end_time, 3600)
+                end_m, end_s = divmod(end_rem, 60)
+                end_ms = int((end_s - int(end_s)) * 1000)
+
+                srt_content += f"{index}\n"
+                srt_content += f"{int(start_h):02}:{int(start_m):02}:{int(start_s):02},{start_ms:03} --> {int(end_h):02}:{int(end_m):02}:{int(end_s):02},{end_ms:03}\n"
+                srt_content += f"{chunk['text']}\n\n"
+                
+                index += 1
+                start_time = end_time
+
+    with open("voiceover.srt", "w", encoding="utf-8") as srt_file:
+        srt_file.write(srt_content)
+
 asyncio.run(generate_voice_and_subs())
 print("Voiceover & Subtitles Generated.")
 
