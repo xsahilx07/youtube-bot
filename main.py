@@ -185,32 +185,31 @@ TOKEN_PICKLE_FILE = 'token.pickle'
 
 def get_authenticated_service():
     creds = None
+    # The file token.pickle stores the user's access and refresh tokens.
+    # It's created automatically when the authorization flow completes for the first time.
     if os.path.exists(TOKEN_PICKLE_FILE):
         with open(TOKEN_PICKLE_FILE, 'rb') as token:
             creds = pickle.load(token)
     
+    # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-            # This is the magic line that prints the URL
-            flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
-            auth_url, _ = flow.authorization_url(prompt='consent')
-            
-            print('********************************************************************************')
-            print('********************************************************************************')
-            print('COPY THIS URL, PASTE IT IN YOUR BROWSER, AND AUTHORIZE:')
-            print(auth_url)
-            print('********************************************************************************')
-            print('********************************************************************************')
-            
-            # We will cause the script to fail here on purpose after printing the URL
-            raise Exception("Authentication URL has been printed. Now go get the code.")
+            oauth_token_code = os.environ.get('YOUTUBE_OAUTH_TOKEN')
+            if oauth_token_code:
+                print("--- Found OAUTH_TOKEN secret, attempting to fetch token ---")
+                flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+                flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob' # Must match the auth step
+                flow.fetch_token(code=oauth_token_code)
+                creds = flow.credentials
+            else:
+                # This block will now be skipped forever
+                raise Exception("CRITICAL: YOUTUBE_OAUTH_TOKEN secret not found after authentication attempt.")
 
-    # This part of the code will not be reached in this run
-    with open(TOKEN_PICKLE_FILE, 'wb') as token:
-        pickle.dump(creds, token)
+        # Save the credentials for the next run
+        with open(TOKEN_PICKLE_FILE, 'wb') as token:
+            pickle.dump(creds, token)
     
     return build(API_NAME, API_VERSION, credentials=creds)
 
