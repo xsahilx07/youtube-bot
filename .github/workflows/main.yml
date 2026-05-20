@@ -2,8 +2,8 @@ name: YouTube Video Automation
 
 on:
   schedule:
-    - cron: '0 10 * * 0'
-  workflow_dispatch:
+    - cron: '0 10 * * 0' # Runs every Sunday at 10 AM UTC.
+  workflow_dispatch: # Allows you to run it manually by clicking a button.
 
 jobs:
   build_and_upload:
@@ -14,15 +14,17 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+        
     - name: Install All Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg
         python -m pip install --upgrade pip
-        pip install moviepy==1.0.3 edge-tts Pillow==9.5.0 PyPexels requests google-api-python-client google-auth-oauthlib google-auth-httplib2 imageio-ffmpeg openai    - name: Run The Robot Brain
+        pip install moviepy==1.0.3 edge-tts Pillow==9.5.0 PyPexels requests google-api-python-client google-auth-oauthlib google-auth-httplib2 imageio-ffmpeg openai
+
     - name: Run The Robot Brain
-  env:
-       PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-       CLIENT_SECRETS_JSON: ${{ secrets.CLIENT_SECRETS_JSON }}
-       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-   run: python main.py
+      env:
+        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+        CLIENT_SECRETS_JSON: ${{ secrets.CLIENT_SECRETS_JSON }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: python main.py
