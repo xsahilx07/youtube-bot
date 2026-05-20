@@ -185,34 +185,25 @@ TOKEN_PICKLE_FILE = 'token.pickle'
 
 def get_authenticated_service():
     creds = None
-    # The file token.pickle stores the user's access and refresh tokens.
-    # It's created automatically when the authorization flow completes for the first time.
-    if os.path.exists(TOKEN_PICKLE_FILE):
-        with open(TOKEN_PICKLE_FILE, 'rb') as token:
-            creds = pickle.load(token)
+    if not os.path.exists(TOKEN_PICKLE_FILE):
+         raise FileNotFoundError("CRITICAL: token.pickle not found. Please authenticate locally and upload the file.")
+
+    with open(TOKEN_PICKLE_FILE, 'rb') as token:
+        creds = pickle.load(token)
     
-    # If there are no (valid) credentials available, let the user log in.
+    # If credentials are not valid, they may be expired.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
+            print("Refreshing expired token...")
             creds.refresh(Request())
+            # Save the refreshed credentials
+            with open(TOKEN_PICKLE_FILE, 'wb') as token:
+                pickle.dump(creds, token)
         else:
-            oauth_token_code = os.environ.get('YOUTUBE_OAUTH_TOKEN')
-            if oauth_token_code:
-                print("--- Found OAUTH_TOKEN secret, attempting to fetch token ---")
-                flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-                flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob' # Must match the auth step
-                flow.fetch_token(code=oauth_token_code)
-                creds = flow.credentials
-            else:
-                # This block will now be skipped forever
-                raise Exception("CRITICAL: YOUTUBE_OAUTH_TOKEN secret not found after authentication attempt.")
-
-        # Save the credentials for the next run
-        with open(TOKEN_PICKLE_FILE, 'wb') as token:
-            pickle.dump(creds, token)
+            # If we can't refresh, the token is invalid.
+            raise Exception("Invalid or expired token. Please re-authenticate locally and upload a new token.pickle.")
     
     return build(API_NAME, API_VERSION, credentials=creds)
-
 youtube = get_authenticated_service()
 
 title = topic
