@@ -52,7 +52,7 @@ print(f"Topic: {topic}")
 # --- 2. GENERATE SCRIPT ---
 print("--- Step 2: Generating Script ---")
 client = Client(
-    provider=g4f.Provider.You  # Using the provider we confirmed exists
+    provider=g4f.Provider.Grok
 )
 try:
     script_prompt = f"Write a 300-word YouTube video script about: {topic}. Start with a strong opening hook. Tell a compelling story. Write in simple, clear language. Do not include a title or any special formatting."
