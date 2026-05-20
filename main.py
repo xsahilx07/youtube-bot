@@ -1,3 +1,4 @@
+from moviepy.video.tools.subtitles import SubtitlesClip
 from openai import OpenAI
 import os
 import random
