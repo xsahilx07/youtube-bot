@@ -185,44 +185,32 @@ TOKEN_PICKLE_FILE = 'token.pickle'
 
 def get_authenticated_service():
     creds = None
-    # The file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first
-    # time.
     if os.path.exists(TOKEN_PICKLE_FILE):
         with open(TOKEN_PICKLE_FILE, 'rb') as token:
             creds = pickle.load(token)
-    # If there are no (valid) credentials available, let the user log in.
+    
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            try:
-                creds.refresh(Request())
-            except Exception as e:
-                print("--- AUTHENTICATION ERROR ---")
-                print("Could not refresh token. Need to re-authenticate.")
-                flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-                # THIS IS THE PART THAT WILL FAIL ON GITHUB ACTIONS
-                # IT WILL PROVIDE A URL IN THE LOGS
-                creds = flow.run_local_server(port=0)
-
+            creds.refresh(Request())
         else:
-   flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
-    # This is the magic line that prints the URL
-    flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
-    auth_url, _ = flow.authorization_url(prompt='consent')
-    
-    print('********************************************************************************')
-    print('********************************************************************************')
-    print('COPY THIS URL, PASTE IT IN YOUR BROWSER, AND AUTHORIZE:')
-    print(auth_url)
-    print('********************************************************************************')
-    print('********************************************************************************')
-    
-    # We will cause the script to fail here on purpose after printing the URL
-    raise Exception("Authentication URL has been printed. Now go get the code.")
+            flow = InstalledAppFlow.from_client_secrets_file(CLIENT_SECRETS_FILE, SCOPES)
+            # This is the magic line that prints the URL
+            flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            
+            print('********************************************************************************')
+            print('********************************************************************************')
+            print('COPY THIS URL, PASTE IT IN YOUR BROWSER, AND AUTHORIZE:')
+            print(auth_url)
+            print('********************************************************************************')
+            print('********************************************************************************')
+            
+            # We will cause the script to fail here on purpose after printing the URL
+            raise Exception("Authentication URL has been printed. Now go get the code.")
 
-        # Save the credentials for the next run
-        with open(TOKEN_PICKLE_FILE, 'wb') as token:
-            pickle.dump(creds, token)
+    # This part of the code will not be reached in this run
+    with open(TOKEN_PICKLE_FILE, 'wb') as token:
+        pickle.dump(creds, token)
     
     return build(API_NAME, API_VERSION, credentials=creds)
 
