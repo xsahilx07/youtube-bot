@@ -5,8 +5,7 @@ import subprocess
 from edge_tts import Communicate
 import asyncio
 import requests
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip
-from moviepy.video.fx import all as vfx
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, TextClip, CompositeVideoClip from moviepy.video.fx import all as vfx
 from PIL import Image, ImageFont, ImageDraw
 import pickle
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -63,13 +62,18 @@ except Exception as e:
 print(f"Topic: {topic}")
 print("Script Loaded successfully.")
 
-# --- 3. GENERATE VOICEOVER ---
-print("--- Step 3: Generating Voiceover ---")
-async def generate_voiceover():
+# --- 3. GENERATE VOICEOVER & SUBTITLES ---
+print("--- Step 3: Generating Voiceover & Subtitles ---")
+async def generate_voice_and_subs():
     communicate = Communicate(script_text, "en-US-JennyNeural")
+    sub_maker = communicate.to_srt()
+    # Save audio file
     await communicate.save("voiceover.mp3")
-asyncio.run(generate_voiceover())
-print("Voiceover Generated.")
+    # Save subtitle file
+    with open("voiceover.srt", "w", encoding="utf-8") as f:
+        f.write(await sub_maker)
+asyncio.run(generate_voice_and_subs())
+print("Voiceover & Subtitles Generated.")
 
 # --- 4. FIND VISUALS (MANUAL API CALL) ---
 print("--- Step 4: Finding Visuals ---")
@@ -111,33 +115,78 @@ except Exception as e:
     print(f"CRITICAL ERROR finding/downloading videos: {e}")
     raise e
 
-# --- 5. CREATE VIDEO ---
-print("--- Step 5: Creating Video ---")
+# --- 5. CREATE "VIRAL STYLE" VIDEO ---
+print("--- Step 5: Creating Viral Style Video ---")
 try:
-    clips = [VideoFileClip(m) for m in downloaded_clips if os.path.exists(m) and os.path.getsize(m) > 0]
-    if not clips:
-        print("CRITICAL: No valid video clips were found after download.")
-        raise FileNotFoundError("No valid clips to process.")
-    
-    processed_clips = [c.set_duration(7).resize(height=VIDEO_HEIGHT) for c in clips]
-    final_clip = concatenate_videoclips(processed_clips, method="compose")
-    
+    # Load the audio and get its duration
     voiceover = AudioFileClip("voiceover.mp3")
-    
-    if final_clip.duration < voiceover.duration:
-        final_clip = final_clip.fx(vfx.loop, duration=voiceover.duration)
-    else:
-        final_clip = final_clip.set_duration(voiceover.duration)
+    video_duration = voiceover.duration
 
-    final_clip.audio = voiceover
+    # --- Prepare Background Clips ---
+    # The key is to have MANY short clips. Let's aim for a clip every 3 seconds.
+    num_clips_needed = int(video_duration / 3) + 1
     
-    print("Writing final video file... This can take a while.")
-    final_clip.write_videofile("final_video.mp4", codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, threads=2)
-    print("Video Created.")
+    # We will reuse our downloaded clips to meet this demand
+    clips_to_use = []
+    if downloaded_clips:
+        for i in range(num_clips_needed):
+            # Loop through the downloaded clips
+            clips_to_use.append(downloaded_clips[i % len(downloaded_clips)])
+
+    print(f"Video requires {num_clips_needed} short clips. Reusing downloaded assets.")
+    
+    # Create VideoFileClip objects for each 3-second segment
+    video_segments = []
+    for clip_path in clips_to_use:
+        if os.path.exists(clip_path) and os.path.getsize(clip_path) > 0:
+            clip = VideoFileClip(clip_path).set_fps(24).resize(width=VIDEO_WIDTH)
+            # If the original clip is shorter than 3s, loop it. Otherwise, take a 3s chunk.
+            if clip.duration < 3:
+                segment = clip.fx(vfx.loop, duration=3)
+            else:
+                start_time = random.uniform(0, clip.duration - 3)
+                segment = clip.subclip(start_time, start_time + 3)
+            
+            video_segments.append(segment.set_duration(3))
+    
+    if not video_segments:
+        raise FileNotFoundError("Could not process any video segments.")
+
+    # --- Concatenate for the final background video ---
+    background_video = concatenate_videoclips(video_segments).set_duration(video_duration)
+
+    # --- Create High-Impact Subtitle Clips ---
+    # This function defines the style of the text
+    def subtitle_generator(txt):
+        # Split text into words to potentially highlight one later (too complex for now)
+        return TextClip(
+            txt.upper(),  # Make text uppercase for impact
+            font='Arial-Bold',
+            fontsize=90,  # Larger font size
+            color='white',
+            stroke_color='black',
+            stroke_width=3,
+            method='caption', # Helps with word wrapping
+            size=(VIDEO_WIDTH*0.8, None) # Text shouldn't span the whole screen
+        )
+    
+    subtitles = SubtitlesClip("voiceover.srt", subtitle_generator)
+    # Position subtitles in the center of the screen
+    subtitles = subtitles.set_position('center')
+
+    # --- Combine everything ---
+    print("Compositing final video...")
+    final_video = CompositeVideoClip([background_video, subtitles], size=(VIDEO_WIDTH, VIDEO_HEIGHT))
+    final_video = final_video.set_audio(voiceover)
+    final_video = final_video.set_duration(video_duration)
+
+    print("Writing final video file...")
+    final_video.write_videofile("final_video.mp4", codec="libx264", audio_codec="aac", temp_audiofile='temp-audio.m4a', remove_temp=True, threads=2)
+    print("Viral Style Video Created.")
+
 except Exception as e:
-    print(f"CRITICAL ERROR creating video: {e}")
+    print(f"CRITICAL ERROR creating viral video: {e}")
     raise e
-
 # --- 6. CREATE THUMBNAIL (MANUAL API CALL) ---
 print("--- Step 6: Creating Thumbnail ---")
 thumbnail_text = topic[:25] + "..." if len(topic) > 25 else topic
