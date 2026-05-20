@@ -1,3 +1,4 @@
+from g4f.client import Client
 import os
 import random
 import subprocess
