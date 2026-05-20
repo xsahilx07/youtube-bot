@@ -19,8 +19,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg
           python -m pip install --upgrade pip
-          pip install moviepy==1.0.3 g4f edge-tts Pillow==9.5.0 requests google-api-python-client google-auth-oauthlib google-auth-httplib2 imageio-ffmpeg
-    - name: Run The Robot Brain
+    pip install moviepy==1.0.3 g4f edge-tts Pillow PyPexels requests google-api-python-client google-auth-oauthlib google-auth-httplib2 imageio-ffmpeg zendriver platformdirs    - name: Run The Robot Brain
       env:
         PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
         CLIENT_SECRETS_JSON: ${{ secrets.CLIENT_SECRETS_JSON }}
