@@ -5,7 +5,8 @@ import subprocess
 from edge_tts import Communicate
 import asyncio
 import requests
-from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, TextClip, CompositeVideoClip from moviepy.video.fx import all as vfx
+from moviepy.editor import VideoFileClip, concatenate_videoclips, AudioFileClip, TextClip, CompositeVideoClip, ImageClip
+from moviepy.video.fx import all as vfx
 from PIL import Image, ImageFont, ImageDraw
 import pickle
 from google_auth_oauthlib.flow import InstalledAppFlow
